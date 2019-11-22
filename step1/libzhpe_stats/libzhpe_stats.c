@@ -20,6 +20,8 @@
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
  *
+ * 20191122 removed likwid j.ambrosi
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -53,8 +55,8 @@ struct zhpe_stats_delta {
 };
 
 struct zhpe_stats {
-    char                likwid_name[16];
-    uint32_t            likwid_sample;
+    char                rd_name[16]; // was likwid
+    uint32_t            rd_sample;   // was likwid
     uint32_t            run_count;
     int                 fd;
     uint16_t            uid;
@@ -123,20 +125,12 @@ static struct zhpe_stats_ops zhpe_stats_nops = {
 
 struct zhpe_stats_ops *zhpe_stats_ops = &zhpe_stats_nops;
 
+#define HAVE_ZHPE_SIM 1 // JA
 #ifdef HAVE_ZHPE_SIM
 
 #include <zhpe_stats.h>
 
 #include <hpe_sim_api_linux64.h>
-
-#ifdef LIKWID_PERFMON
-#include <likwid.h>
-#else
-#define LIKWID_MARKER_INIT
-#define LIKWID_MARKER_CLOSE
-#define LIKWID_MARKER_START(_x)
-#define LIKWID_MARKER_STOP(_x)
-#endif
 
 /* Common defintions/code */
 
@@ -756,83 +750,6 @@ static struct zhpe_stats_ops stats_ops_sim = {
     .stamp              = stats_sim_stamp,
 };
 
-/* LIKWID code */
-
-#ifdef LIKWID_PERFMON
-
-static void stats_finalize_likwid(void)
-{
-    LIKWID_MARKER_CLOSE;
-}
-
-static void stats_open_likwid(struct zhpe_stats *stats)
-{
-    if (!zhpe_stats_dir || stats->state != ZHPE_STATS_INIT)
-        return;
-    if (stats->buf) {
-        print_err("%s,%u:uid 0x%03x already opened\n",
-                  __func__, __LINE__, stats->uid);
-        return;
-    }
-    stats->likwid_sample = 0;
-    stats->buf_len = sizeof(ProcCtlData) + sizeof(CacheData);
-    stats_open_common(stats);
-}
-
-void stats_start_likwid(struct zhpe_stats *stats)
-{
-    if (stats->state == ZHPE_STATS_STOPPED) {
-        memset(stats->extra, 0, sizeof(*stats->extra));
-        snprintf(stats->likwid_name, sizeof(stats->likwid_name), "%u:%u",
-                stats->uid, stats->likwid_sample++);
-    } else if (stats->state != ZHPE_STATS_PAUSED)
-        return;
-    LIKWID_MARKER_START(stats->likwid_name);
-    stats->extra->starts++;
-    stats->state = ZHPE_STATS_RUNNING;
-    return;
-}
-
-static void stats_stop_likwid(struct zhpe_stats *stats)
-{
-    ssize_t                     res;
-
-    if (stats->state == ZHPE_STATS_RUNNING)
-        LIKWID_MARKER_STOP(stats->likwid_name);
-    else if (stats->state != ZHPE_STATS_PAUSED)
-        return;
-    stats->state = ZHPE_STATS_STOPPED;
-    res = write(stats->fd, stats->buf, stats->buf_len);
-    if (check_func_ion(__func__, __LINE__, "write", stats->buf_len, false,
-                       stats->buf_len, res, 0) < 0)
-        return;
-}
-
-static void stats_pause_likwid(struct zhpe_stats *stats)
-{
-    if (stats->state != ZHPE_STATS_RUNNING)
-        return;
-    LIKWID_MARKER_STOP(stats->likwid_name);
-    stats->extra->pauses++;
-    stats->state = ZHPE_STATS_PAUSED;
-}
-
-static struct zhpe_stats_ops stats_ops_likwid = {
-    .finalize           = stats_finalize_likwid,
-    .open               = stats_open_likwid,
-    .close              = stats_close_common,
-    .start              = stats_start_likwid,
-    .stop               = stats_stop_likwid,
-    .pause              = stats_pause_likwid,
-    /* Unimplemented, yet */
-    .delta_start        = stats_nop_delta,
-    .delta_stop         = stats_nop_delta,
-    .pause_all          = stats_nop_void,
-    .restart_all        = stats_nop_void,
-};
-
-#endif
-
 bool zhpe_stats_init(const char *stats_dir, const char *stats_unique)
 {
     bool                ret = false;
@@ -850,16 +767,12 @@ bool zhpe_stats_init(const char *stats_dir, const char *stats_unique)
         print_err("%s,%u:already initialized\n", __func__, __LINE__);
         goto done;
     }
+
 #ifdef HAVE_ZHPE_SIM
     if (sim_api_is_sim())
         zhpe_stats_ops = &stats_ops_sim;
 #endif
-#ifdef LIKWID_PERFMON
-    if (zhpe_stats_ops == &zhpe_stats_nops) {
-        zhpe_stats_ops = &stats_ops_likwid;
-        LIKWID_MARKER_INIT;
-    }
-#endif
+
     if (zhpe_stats_ops == &zhpe_stats_nops) {
         print_err("%s,%u:no statistics support available\n",
                   __func__, __LINE__);
