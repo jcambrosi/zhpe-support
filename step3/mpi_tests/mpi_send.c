@@ -20,6 +20,8 @@
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
  *
+ * BR test mod version for rdtscp 20191123 J.Ambrosi, J.Souza, L.Witt
+ *											   
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -49,8 +51,11 @@ int main(int argc, char **argv)
     uint64_t            i;
     int                 n_proc;
     int                 n_rank;
+	
+	long long           startCpuCyclesCount, stopCpuCyclesCount;
 
-    /* We're going to assume MPI isn't tweaking the arguments. */
+    printf("\nV1.008 nargc= %d\n\n", argc);
+
     if (argc != 3 && argc != 5) {
         fprintf(stderr, "Usage:%s <loops> <size> [stats_dir <unique>]\n",
                 argv[0]);
@@ -58,18 +63,16 @@ int main(int argc, char **argv)
     }
 
     if (argc == 5) {
+		printf("mpi_send zhpe_stats_init\n");
         zhpe_stats_init(argv[3], argv[4]);
+        printf("mpi_send zhpe_stats_test\n");
         zhpe_stats_test(0);
+        printf("mpi_send zhpe_stats_open\n");
         zhpe_stats_open(1);
-        zhpe_stats_enable();
-        zhpe_stats_start(0);
-        zhpe_stats_start(10);
-        zhpe_stats_disable();
     }
 
     if (MPI_Init(&argc, &argv) != MPI_SUCCESS)
         return ret;
-
     if (parse_kb_uint64_t(__func__, __LINE__, "loops",
                           argv[1], &loops, 0, 1, SIZE_MAX,
                           PARSE_KB | PARSE_KIB) < 0)
@@ -78,13 +81,12 @@ int main(int argc, char **argv)
                           argv[2], &size, 0, 0, SIZE_MAX,
                           PARSE_KB | PARSE_KIB) < 0)
         goto done;
-
     if (MPI_Comm_size(MPI_COMM_WORLD, &n_proc) != MPI_SUCCESS)
         goto done;
-
     if (MPI_Comm_rank(MPI_COMM_WORLD, &n_rank) != MPI_SUCCESS)
         goto done;
 
+    printf("mmap\n");
     buf = mmap(NULL, (size ?: 1), PROT_READ | PROT_WRITE,
                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     if (buf == MAP_FAILED) {
@@ -92,30 +94,31 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    zhpe_stats_enable();
-    zhpe_stats_stop(10);
-    zhpe_stats_start(20);
-    zhpe_stats_disable();
-
     if (!n_rank) {
+
+		printf("at rank %d, num procs %d\n", n_rank, n_proc);
         if (n_proc != 2) {
             fprintf(stderr, "Need 2 ranks, not %d\n", n_proc);
             goto done;
         }
+
         printf("loops %Lu size %Lu\n", (ullong)loops, (ullong)size);
 
         zhpe_stats_enable();
         for (i = 0; i < loops; i++) {
-            zhpe_stats_start(100);
+			printf("at rank %d, before stats start and send\n",n_rank);
+            zhpe_stats_start(100, startCpuCyclesCount);
             if (MPI_Send(buf, size, MPI_BYTE, 1, 0, MPI_COMM_WORLD)
                 != MPI_SUCCESS)
                 goto done;
-            zhpe_stats_stop(100);
-            zhpe_stats_start(110);
+            zhpe_stats_stop(100, stopCpuCyclesCount);
+			printf("at rank %d, &lld &lld &lld after send\n",n_rank,startCpuCyclesCount, stopCpuCyclesCount, stopCpuCyclesCount-startCpuCyclesCount);
+            zhpe_stats_start(110, startCpuCyclesCount);
             if (MPI_Recv(buf, size, MPI_BYTE, 1, 0, MPI_COMM_WORLD,
                          MPI_STATUS_IGNORE) != MPI_SUCCESS)
                 goto done;
-            zhpe_stats_stop(110);
+            zhpe_stats_stop(110, stopCpuCyclesCount);
+			printf("at rank %d, &lld &lld &lld after recv\n",n_rank,startCpuCyclesCount, stopCpuCyclesCount, stopCpuCyclesCount-startCpuCyclesCount);
         }
         zhpe_stats_disable();
         MPI_Barrier(MPI_COMM_WORLD);
@@ -133,11 +136,6 @@ int main(int argc, char **argv)
     }
     ret = 0;
 
-    zhpe_stats_enable();
-    zhpe_stats_stop(20);
-    zhpe_stats_start(30);
-    zhpe_stats_disable();
-
  done:
     if (buf)
         munmap(buf, size);
@@ -145,9 +143,9 @@ int main(int argc, char **argv)
     if (ret)
         fprintf(stderr, "error\n");
 
-    zhpe_stats_enable();
-    zhpe_stats_stop_all();
+    printf("mpi_send zhpe_stats_close\n");
     zhpe_stats_close();
+    printf("mpi_send zhpe_stats_finalize\n");
     zhpe_stats_finalize();
 
     return ret;

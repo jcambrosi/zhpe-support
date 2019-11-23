@@ -803,9 +803,10 @@ bool zhpe_stats_init(const char *stats_dir, const char *stats_unique)
     return ret;
 }
 
+/*
 void zhpe_stats_test(uint16_t uid)
 {
-
+	
     zhpe_stats_open(uid);
     zhpe_stats_enable();
 
@@ -894,6 +895,7 @@ void zhpe_stats_test(uint16_t uid)
 
     zhpe_stats_close();
 }
+*/
 
 #else
 

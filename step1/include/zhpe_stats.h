@@ -46,6 +46,15 @@ _EXTERN_C_BEG
 
 #ifdef HAVE_ZHPE_STATS
 
+inline __attribute__((always_inline)) long long rdtsc(void)
+{
+	unsigned int low, high;
+
+	asm volatile("rdtscp" : "=a" (low), "=d" (high));
+
+	return low | ((long long)high) << 32;
+}
+
 extern struct zhpe_stats_ops *zhpe_stats_ops;
 bool zhpe_stats_init(const char *stats_dir, const char *stats_unique);
 void zhpe_stats_test(uint16_t uid);
@@ -86,20 +95,25 @@ static inline void zhpe_stats_restart_all(void)
     zhpe_stats_ops->restart_all();
 }
 
-static inline void zhpe_stats_start(uint32_t subid)
+// static inline void zhpe_stats_start(uint32_t subid)
+static inline void zhpe_stats_start(uint32_t subid, long long cpuClockCount)
 {
     struct zhpe_stats   *stats;
 
-    if ((stats = zhpe_stats_ops->stop_counters()))
-        zhpe_stats_ops->start(stats, subid);
+//    if ((stats = zhpe_stats_ops->stop_counters()))
+//        zhpe_stats_ops->start(stats, subid);
+    cpuClockCount = rdtsc();
+
 }
 
-static inline void zhpe_stats_stop(uint32_t subid)
+// static inline void zhpe_stats_stop(uint32_t subid)
+static inline void zhpe_stats_stop(uint32_t subid, long long cpuClockCount))
 {
     struct zhpe_stats   *stats;
 
-    if ((stats = zhpe_stats_ops->stop_counters()))
-        zhpe_stats_ops->stop(stats, subid);
+//    if ((stats = zhpe_stats_ops->stop_counters()))
+//        zhpe_stats_ops->stop(stats, subid);
+    cpuClockCount = rdtsc();
 }
 
 static inline void zhpe_stats_pause(uint32_t subid)
@@ -150,8 +164,8 @@ static inline bool zhpe_stats_init(const char *stats_dir,
 #define zhpe_stats_stop_all()           do {} while (0)
 #define zhpe_stats_pause_all()          do {} while (0)
 #define zhpe_stats_restart_all()        do {} while (0)
-#define zhpe_stats_start(subid)         do {} while (0)
-#define zhpe_stats_stop(subid)          do {} while (0)
+// #define zhpe_stats_start(subid)         do {} while (0)
+// #define zhpe_stats_stop(subid)          do {} while (0)
 #define zhpe_stats_pause(subid)         do {} while (0)
 #define zhpe_stats_enable()             do {} while (0)
 #define zhpe_stats_disable()            do {} while (0)
