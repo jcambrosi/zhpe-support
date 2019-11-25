@@ -20,7 +20,7 @@
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
  *
- * 20191122 removed likwid j.ambrosi
+ * 20191122 removed likwid j.ambrosi, j.souza, l.witt
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -125,7 +125,7 @@ static struct zhpe_stats_ops zhpe_stats_nops = {
 
 struct zhpe_stats_ops *zhpe_stats_ops = &zhpe_stats_nops;
 
-#define HAVE_ZHPE_SIM 1 // JA
+#define HAVE_ZHPE_SIM 1 // JA temporary
 #ifdef HAVE_ZHPE_SIM
 
 #include <zhpe_stats.h>

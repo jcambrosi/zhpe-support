@@ -20,6 +20,8 @@
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
  *
+ * 20191122 BR added rdtscp call removed likwid j.ambrosi, j.souza, l.witt
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -95,25 +97,20 @@ static inline void zhpe_stats_restart_all(void)
     zhpe_stats_ops->restart_all();
 }
 
-// static inline void zhpe_stats_start(uint32_t subid)
-static inline void zhpe_stats_start(uint32_t subid, long long cpuClockCount)
+ static inline void zhpe_stats_start(uint32_t subid)
 {
     struct zhpe_stats   *stats;
 
-//    if ((stats = zhpe_stats_ops->stop_counters()))
-//        zhpe_stats_ops->start(stats, subid);
-    cpuClockCount = rdtsc();
+    if ((stats = zhpe_stats_ops->stop_counters()))
+        zhpe_stats_ops->start(stats, subid);
 
 }
 
-// static inline void zhpe_stats_stop(uint32_t subid)
-static inline void zhpe_stats_stop(uint32_t subid, long long cpuClockCount))
+static inline long long zhpe_stats_rdtscp_sample(uint32_t subid)
 {
     struct zhpe_stats   *stats;
 
-//    if ((stats = zhpe_stats_ops->stop_counters()))
-//        zhpe_stats_ops->stop(stats, subid);
-    cpuClockCount = rdtsc();
+    return rdtsc();
 }
 
 static inline void zhpe_stats_pause(uint32_t subid)
@@ -149,7 +146,7 @@ do {                                                                    \
 #define zhpe_stats_subid(_name, _id)            \
     ((ZHPE_STATS_SUBID_##_name * 1000) + _id)
 
-#else
+#else // HAVE_ZHPE_STATS
 
 static inline bool zhpe_stats_init(const char *stats_dir,
                                    const char *stats_unique)
@@ -164,8 +161,8 @@ static inline bool zhpe_stats_init(const char *stats_dir,
 #define zhpe_stats_stop_all()           do {} while (0)
 #define zhpe_stats_pause_all()          do {} while (0)
 #define zhpe_stats_restart_all()        do {} while (0)
-// #define zhpe_stats_start(subid)         do {} while (0)
-// #define zhpe_stats_stop(subid)          do {} while (0)
+#define zhpe_stats_start(subid)         do {} while (0)
+#define zhpe_stats_stop(subid)          do {} while (0)
 #define zhpe_stats_pause(subid)         do {} while (0)
 #define zhpe_stats_enable()             do {} while (0)
 #define zhpe_stats_disable()            do {} while (0)
