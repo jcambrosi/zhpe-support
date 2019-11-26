@@ -97,19 +97,23 @@ static inline void zhpe_stats_restart_all(void)
     zhpe_stats_ops->restart_all();
 }
 
- static inline void zhpe_stats_start(uint32_t subid)
+static inline void zhpe_stats_start(uint32_t subid)
 {
     struct zhpe_stats   *stats;
 
     if ((stats = zhpe_stats_ops->stop_counters()))
         zhpe_stats_ops->start(stats, subid);
+}
 
+static inline void zhpe_stats_stop(uint32_t subid) {
+
+    struct zhpe_stats * stats;
+
+    if ((stats = zhpe_stats_ops->stop_counters())) zhpe_stats_ops->stop(stats, subid);
 }
 
 static inline long long zhpe_stats_rdtscp_sample(uint32_t subid)
 {
-    struct zhpe_stats   *stats;
-
     return rdtsc();
 }
 
