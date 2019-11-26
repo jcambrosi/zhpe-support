@@ -21,7 +21,7 @@
  *     with the distribution.
  *
  * 20191122 removed likwid, added rdtscp j.ambrosi, j.souza, l.witt
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -47,11 +47,11 @@
 
 inline __attribute__((always_inline)) long long rdtscp(void)
 {
-	unsigned int low, high;
+    unsigned int low, high;
 
-	asm volatile("rdtscp" : "=a" (low), "=d" (high));
+    asm volatile("rdtscp" : "=a" (low), "=d" (high));
 
-	return low | ((long long)high) << 32;
+    return low | ((long long)high) << 32;
 }
 
 struct zhpe_stats_extra {
@@ -89,48 +89,34 @@ enum {
 };
 
 
-char _BUF_TMP[1000];
-void dprint(char* pMsg)
-{
-//    print_err("%s\n", pMsg);
-    printf("== %s == \n", pMsg);
-}
-
 static struct zhpe_stats *stats_nop_null(void)
 {
-dprint("stats_nop_null");
     return NULL;
 }
 
 static void stats_nop_stamp(struct zhpe_stats *stats, uint32_t dum,
                             uint32_t dum2, uint64_t *dum3)
 {
-dprint("stats_nop_stamp");
 }
 
 static void stats_nop_stats(struct zhpe_stats *stats)
 {
-    dprint("stats_nop_stats");
 }
 
 static void stats_nop_stats_uint32(struct zhpe_stats *stats, uint32_t dum)
 {
-    dprint("stats_nop_stats_uint32");
 }
 
 static void stats_nop_uint16(uint16_t dum)
 {
-    dprint("stats_nop_uint16");
 }
 
 static void stats_nop_void(void)
 {
-    dprint("stats_nop_void");
 };
 
 static void stats_nop_voidp(void *dum)
 {
-    dprint("stats_nop_voidp");
 };
 
 static struct zhpe_stats_ops zhpe_stats_nops = {
@@ -160,7 +146,12 @@ struct zhpe_stats_ops *zhpe_stats_ops = &zhpe_stats_nops;
 #include <zhpe_stats.h>
 
 #define HAVE_RDTSCP_PERFORM 1 // R&D BR  // TODO: move common functions out of _SIM_
+
+#ifdef HAVE_RDTSCP_PERFORM
+#include <hpe_rdtscp_api_linux64.h>
+#else
 #include <hpe_sim_api_linux64.h>
+#endif
 
 /* Common defintions/code */
 
@@ -409,7 +400,7 @@ static void stats_cmn_open(uint16_t uid, size_t buf_len)
         abort();
     }
 
-printf("stats_cmn_open 1.03  %s  uid=%d  buf_len=%ld\n", fname, uid, buf_len);
+printf("stats_cmn_open 1.04  %s  uid=%d  buf_len=%ld \n", fname, uid, buf_len);
 
     stats->fd = open(fname, O_RDWR | O_CREAT | O_TRUNC,
                      S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -448,74 +439,6 @@ static void stats_cmn_disable(void)
 }
 
 
-
-
-// R&D BR  TODO: move to new source .c file
-// RDTSCP Code
-#include <execinfo.h>
-#include <stdlib.h>  // free()
-void printStack(void)
-{
-    int count;
-    void *stack[50]; // can hold 50, adjust appropriately
-    char **symbols;
-
-    count = backtrace(stack, 50);
-    symbols = backtrace_symbols(stack, count);
-
-    for (int i = 0; i < count; i++)
-        puts(symbols[i]);
-
-    free(symbols);
-}
-
-#ifdef HAVE_RDTSCP_PERFORM
-
-struct zhpe_stats stats_rdtscp; // temporary
-static void stats_rdtscp_open(uint16_t uid)  {    printf("##### pid=%-5d stats_rdtscp_open uid=%d  \n", getpid(), uid);   }
-static void stats_rdtscp_close()             {    printf("##### pid=%-5d stats_rdtscp_close \n", getpid());   }
-static void stats_rdtscp_enable()            {    printf("##### pid=%-5d stats_rdtscp_enable \n", getpid());   }
-static void stats_rdtscp_disable()           {    printf("##### pid=%-5d stats_rdtscp_disable \n", getpid());   }
-
-static int n1=0;
-static struct zhpe_stats *stats_rdtscp_stop_counters()                       {    printf("##### pid=%-5d stats_rdtscp_stop_counters %d\n", getpid(), n1++);  return &stats_rdtscp; }
-static void stats_rdtscp_stop_all(struct zhpe_stats *stats)                  {    printf("##### pid=%-5d stats_rdtscp_stop_all \n", getpid());   }
-static void stats_rdtscp_start(struct zhpe_stats *stats, uint32_t subid)     
-{    
-	printf("***** pid=%-5d stats_rdtscp_start subid=%d %u tscp %lld \n", getpid(), (int)subid, subid, rdtscp());   
-}
-static void stats_rdtscp_stop(struct zhpe_stats *stats, uint32_t subid)      
-{    
-	printf("***** pid=%-5d stats_rdtscp_stop subid=%d %u tscp %lld \n", getpid(), (int)subid, subid, rdtscp());   
-}
-static void stats_rdtscp_pause(struct zhpe_stats *stats, uint32_t subid)     {    printf("##### pid=%-5d stats_rdtscp_pause subid=%d  \n", getpid(), (int)subid);   }
-static void stats_rdtscp_finalize()                                          {    printf("##### pid=%-5d stats_rdtscp_finalize \n", getpid());   }
-static void stats_rdtscp_pause_all(struct zhpe_stats *stats)                 {    printf("##### pid=%-5d stats_rdtscp_pause_all \n", getpid());   }
-static void stats_rdtscp_restart_all()                                       {    printf("##### pid=%-5d stats_rdtscp_restart_all \n", getpid());   }
-static void stats_rdtscp_key_destructor(void *vstats)                        {    printf("##### pid=%-5d stats_rdtscp_key_destructor \n", getpid());   }
-static void stats_rdtscp_stamp(struct zhpe_stats *stats, uint32_t subid,uint32_t items, uint64_t *data)    {    printf("##### pid=%-5d stats_rdtscp_stamp \n", getpid()); /*printStack();*/  }
-
-
-static struct zhpe_stats_ops stats_ops_rdtscp = {
-    .open               = stats_rdtscp_open,
-    .close              = stats_rdtscp_close,
-    .enable             = stats_rdtscp_enable,
-    .disable            = stats_rdtscp_disable,
-    .stop_counters      = stats_rdtscp_stop_counters,
-    .stop_all           = stats_rdtscp_stop_all,
-    .start              = stats_rdtscp_start,
-    .stop               = stats_rdtscp_stop,
-    .finalize           = stats_rdtscp_finalize,
-
-    .pause              = stats_rdtscp_pause,
-    .pause_all          = stats_rdtscp_pause_all,
-    .restart_all        = stats_rdtscp_restart_all,
-    .key_destructor     = stats_rdtscp_key_destructor,
-    .stamp              = stats_rdtscp_stamp,
-};
-#endif
-
-/* Carbon code */
 
 
 static void sim_check_rec(struct zhpe_stats *stats)
@@ -557,10 +480,9 @@ static void sim_check_rec(struct zhpe_stats *stats)
 }
 
 
+
 static void sim_start(struct zhpe_stats *stats)
 {
-    dprint("sim_start");
-
     /* Init/save snapshot for next time. */
     if (stats->state == ZHPE_STATS_STOPPED)
         memset(stats->buf, 0, 2 * stats->buf_len);
@@ -575,7 +497,6 @@ static void sim_start(struct zhpe_stats *stats)
 
 static void sim_stop(struct zhpe_stats *stats)
 {
-    dprint("sim_stop");
     if (sim_api_data_rec(DATA_REC_STOP, stats->uid, (uintptr_t)stats->buf)) {
         print_func_err(__func__, __LINE__, "sim_api_data_rec",
                        "DATA_REC_STOP", -EINVAL);
@@ -586,6 +507,221 @@ static void sim_stop(struct zhpe_stats *stats)
     sim_check_rec(stats);
     stats_cmn_update_stats(stats);
 }
+
+static void sim_close(struct zhpe_stats *stats)
+{
+    if (sim_api_data_rec(DATA_REC_END, stats->uid, (uintptr_t)stats->buf))
+        print_func_err(__func__, __LINE__, "sim_api_data_rec",
+                       "DATA_REC_END", -EINVAL);
+    stats_cmn_close(stats);
+}
+
+
+// R&D BR  TODO: move to new source .c file
+// RDTSCP Code
+
+#ifdef HAVE_RDTSCP_PERFORM
+
+static void stats_rdtscp_open(uint16_t uid)
+{
+    printf("##### pid=%-5d stats_rdtscp_open uid=%d  \n", getpid(), uid);
+    uint64_t            buf_len;
+    struct zhpe_stats   *stats;
+
+    stats = pthread_getspecific(zhpe_stats_key);
+    if (stats) {
+        if (stats->uid == uid)
+            return;
+        print_err("%s,%u:tid %ld, uid 0x%03x active, cannot open 0x%03x\n",
+                  __func__, __LINE__, syscall(SYS_gettid), stats->uid, uid);
+        abort();
+    }
+
+    if (sim_api_data_rec(DATA_REC_CREAT, uid, (uintptr_t)&buf_len)) {
+        print_func_err(__func__, __LINE__, "sim_api_data_rec",
+                       "DATA_REC_CREAT", -EINVAL);
+        abort();
+    }
+// R&D BR
+buf_len = 9;
+printf("      stats_rdtscp_open uid=%d buf_len=%lu \n", uid, buf_len);
+
+    stats_cmn_open(uid, buf_len);
+}
+
+static void stats_rdtscp_close()
+{
+    printf("##### pid=%-5d stats_rdtscp_close \n", getpid());
+    struct zhpe_stats   *stats;
+
+    stats = pthread_getspecific(zhpe_stats_key);
+    if (!stats)
+        return;
+    sim_close(stats);
+}
+
+//static void stats_rdtscp_enable()            {    printf("##### pid=%-5d stats_rdtscp_enable \n", getpid());   }
+//static void stats_rdtscp_disable()           {    printf("##### pid=%-5d stats_rdtscp_disable \n", getpid());   }
+
+static int n1=0;
+static struct zhpe_stats *stats_rdtscp_stop_counters()
+{
+    printf("##### pid=%-5d stats_rdtscp_stop_counters %d\n", getpid(), n1++);
+    struct zhpe_stats   *stats;
+
+    stats = pthread_getspecific(zhpe_stats_key);
+    if (!stats)
+        return NULL;
+    if (!stats->enabled)
+        return NULL;
+
+    if (stats->state != ZHPE_STATS_STOPPED)
+        sim_stop(stats);
+
+    return stats;
+}
+
+static void stats_rdtscp_stop_all(struct zhpe_stats *stats)
+{
+    printf("##### pid=%-5d stats_rdtscp_stop_all \n", getpid());
+    struct zhpe_stats_delta *delta;
+    struct zhpe_stats_delta *next;
+
+    for (delta = stats->delta_paused; delta; delta = next) {
+        next = delta->next;
+        stats_cmn_delta_write(stats, delta);
+        stats_cmn_delta_free_head(stats, &stats->delta_paused);
+    }
+    for (delta = stats->delta; delta; delta = next) {
+        next = delta->next;
+        stats_cmn_delta_write(stats, delta);
+        stats_cmn_delta_free_head(stats, &stats->delta);
+    }
+}
+
+static void stats_rdtscp_start(struct zhpe_stats *stats, uint32_t subid)
+{
+    printf("***** pid=%-5d stats_rdtscp_start subid=%u tscp %lld \n", getpid(), subid, rdtscp());
+}
+
+static void stats_rdtscp_stop(struct zhpe_stats *stats, uint32_t subid)
+{
+    printf("***** pid=%-5d stats_rdtscp_stop subid=%u tscp %lld \n", getpid(), subid, rdtscp());
+}
+
+static void stats_rdtscp_pause(struct zhpe_stats *stats, uint32_t subid)
+{
+    printf("##### pid=%-5d stats_rdtscp_pause subid=%d  \n", getpid(), (int)subid);
+    stats->pause_all = true;
+}
+
+static void stats_rdtscp_finalize()
+{
+    printf("##### pid=%-5d stats_rdtscp_finalize \n", getpid());
+    /* Delete all trackers. */
+    sim_api_data_rec(DATA_REC_START, -2, (uintptr_t)NULL);
+
+    mutex_lock(&zhpe_stats_mutex);
+    stats_cmn_finalize();
+    mutex_unlock(&zhpe_stats_mutex);
+}
+
+static void stats_rdtscp_pause_all(struct zhpe_stats *stats)
+{
+    printf("##### pid=%-5d stats_rdtscp_pause_all \n", getpid());
+    stats->pause_all = true;
+}
+static void stats_rdtscp_restart_all()
+{
+    printf("##### pid=%-5d stats_rdtscp_restart_all \n", getpid());
+    struct zhpe_stats   *stats;
+
+    stats = pthread_getspecific(zhpe_stats_key);
+    if (!stats)
+        return;
+
+    if (!stats->enabled)
+        return;
+    if (!stats->pause_all)
+        return;
+    stats->pause_all = false;
+
+    if (stats->delta)
+        sim_start(stats);
+}
+static void stats_rdtscp_key_destructor(void *vstats)
+{
+    printf("##### pid=%-5d stats_rdtscp_key_destructor \n", getpid());
+    struct zhpe_stats   *stats = vstats;
+
+    if (!stats)
+        return;
+
+    if (!stats->enabled)
+        return;
+
+    sim_close(stats);
+}
+
+static void stats_rdtscp_stamp(struct zhpe_stats *stats, uint32_t subid,uint32_t items, uint64_t *data)
+{
+    printf("##### pid=%-5d stats_rdtscp_stamp \n", getpid());
+    char                *clock = stats->buf + 2 * stats->buf_len;
+    size_t              o;
+    size_t              n;
+    uint64_t            *u64np;
+    char                buf[stats->buf_len];
+    struct zhpe_stats_extra *extra = stats_cmn_extra(stats, buf);;
+
+    /* Fill in instruction counts amd extra from clock data. */
+    memcpy(buf, clock, sizeof(ProcCtlData));
+    memcpy(extra, stats_cmn_extra(stats, clock), sizeof(*extra));
+
+    /* Put user data in CacheData. */
+    o = offsetof(CacheData, coherencyCastoutDataL1);
+    n = ((sizeof(CacheData) - o) / sizeof(*u64np));
+    u64np = (void *)(buf + sizeof(ProcCtlData) + o);
+    if (items > n)
+        items = n;
+    n -= items;
+    for (; items > 0; items--, u64np++, data++)
+        *u64np = *data;
+    for (; n > 0; n--, u64np++)
+        *u64np = 0;
+
+    extra->subid = subid;
+    if (stats->delta)
+        extra->nesting = stats_cmn_extra(stats, stats->delta->buf)->nesting + 1;
+    stats_cmn_buf_write(stats, buf);
+
+    /* Restart I/O, if active. */
+    if (stats->delta)
+        sim_start(stats);
+}
+
+
+static struct zhpe_stats_ops stats_ops_rdtscp = {
+    .open               = stats_rdtscp_open,
+    .close              = stats_rdtscp_close,
+    .enable             = stats_cmn_enable,
+    .disable            = stats_cmn_disable,
+    .stop_counters      = stats_rdtscp_stop_counters,
+    .stop_all           = stats_rdtscp_stop_all,
+    .start              = stats_rdtscp_start,
+    .stop               = stats_rdtscp_stop,
+    .finalize           = stats_rdtscp_finalize,
+
+    .pause              = stats_rdtscp_pause,
+    .pause_all          = stats_rdtscp_pause_all,
+    .restart_all        = stats_rdtscp_restart_all,
+    .key_destructor     = stats_rdtscp_key_destructor,
+    .stamp              = stats_rdtscp_stamp,
+};
+#endif
+
+/* Carbon code */
+
+
 
 #if 0
 static void sim_pause(struct zhpe_stats *stats)
@@ -600,21 +736,12 @@ static void sim_pause(struct zhpe_stats *stats)
 }
 #endif
 
-static void sim_close(struct zhpe_stats *stats)
-{
-    dprint("sim_close");
-    if (sim_api_data_rec(DATA_REC_END, stats->uid, (uintptr_t)stats->buf))
-        print_func_err(__func__, __LINE__, "sim_api_data_rec",
-                       "DATA_REC_END", -EINVAL);
-    stats_cmn_close(stats);
-}
 
 static void stats_sim_close(void)
 {
     struct zhpe_stats   *stats;
 
     stats = pthread_getspecific(zhpe_stats_key);
-    dprint("stats_sim_close");
     if (!stats)
         return;
     sim_close(stats);
@@ -656,7 +783,6 @@ static void stats_sim_restart_all(void)
     struct zhpe_stats   *stats;
 
     stats = pthread_getspecific(zhpe_stats_key);
-    dprint("stats_sim_restart_all");
     if (!stats)
         return;
 
@@ -675,7 +801,6 @@ static struct zhpe_stats *stats_sim_stop_counters(void)
     struct zhpe_stats   *stats;
 
     stats = pthread_getspecific(zhpe_stats_key);
-    dprint("stats_sim_stop_counters");
     if (!stats)
         return NULL;
     if (!stats->enabled)
@@ -748,7 +873,6 @@ static void stats_sim_stop_all(struct zhpe_stats *stats)
 {
     struct zhpe_stats_delta *delta;
     struct zhpe_stats_delta *next;
-    dprint("stats_sim_stop_all");
 
     for (delta = stats->delta_paused; delta; delta = next) {
         next = delta->next;
@@ -795,7 +919,6 @@ static void stats_sim_finalize(void)
 {
     /* Delete all trackers. */
     sim_api_data_rec(DATA_REC_START, -2, (uintptr_t)NULL);
-    dprint("stats_sim_finalize    \n");
 
     mutex_lock(&zhpe_stats_mutex);
     stats_cmn_finalize();
@@ -805,7 +928,6 @@ static void stats_sim_finalize(void)
 static void stats_sim_key_destructor(void *vstats)
 {
     struct zhpe_stats   *stats = vstats;
-    dprint("stats_sim_key_destructor");
 
     if (!stats)
         return;
@@ -825,7 +947,6 @@ static void stats_sim_stamp(struct zhpe_stats *stats, uint32_t subid,
     uint64_t            *u64np;
     char                buf[stats->buf_len];
     struct zhpe_stats_extra *extra = stats_cmn_extra(stats, buf);;
-    dprint("stats_sim_stamp");
 
     /* Fill in instruction counts amd extra from clock data. */
     memcpy(buf, clock, sizeof(ProcCtlData));
@@ -1021,7 +1142,6 @@ void zhpe_stats_test(uint16_t uid)
 
 void zhpe_stats_init(const char *stats_dir, const char *stats_unique)
 {
-    dprint("zhpe_stats_init");
     if (!stats_dir && !stats_unique)
         return;
     print_err("%s,%u:libzhpe_stats built without stats support\n",
@@ -1030,7 +1150,6 @@ void zhpe_stats_init(const char *stats_dir, const char *stats_unique)
 
 void zhpe_stats_test(uint16_t uid)
 {
-    dprint("zhpe_stats_test");
 }
 
 #endif
