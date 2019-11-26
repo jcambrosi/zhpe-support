@@ -52,8 +52,6 @@ int main(int argc, char **argv)
     int                 n_proc;
     int                 n_rank;
 	
-	long long           startCpuCyclesCount, stopCpuCyclesCount;
-
     printf("\nV1.008 nargc= %d\n\n", argc);
 
     if (argc != 3 && argc != 5) {
@@ -106,19 +104,18 @@ int main(int argc, char **argv)
         for (i = 0; i < loops; i++) {
 			printf("at rank %d, before stats start and send\n",n_rank);
 			
-            startCpuCyclesCount = zhpe_stats_rdtscp_sample(100);
+            zhpe_stats_start(100);
             if (MPI_Send(buf, size, MPI_BYTE, 1, 0, MPI_COMM_WORLD)
                 != MPI_SUCCESS)
                 goto done;
-            stopCpuCyclesCount = zhpe_stats_rdtscp_sample(100);
-			printf("at rank %d, %lld %lld %lld after send\n",n_rank,startCpuCyclesCount, stopCpuCyclesCount, stopCpuCyclesCount-startCpuCyclesCount);
+            zhpe_stats_stop(100);
 			
-            startCpuCyclesCount = zhpe_stats_rdtscp_sample(110);
+			printf("at rank %d, before stats start and rcv\n",n_rank);
+            zhpe_stats_start(110);
             if (MPI_Recv(buf, size, MPI_BYTE, 1, 0, MPI_COMM_WORLD,
                          MPI_STATUS_IGNORE) != MPI_SUCCESS)
                 goto done;
-            stopCpuCyclesCount = zhpe_stats_rdtscp_sample(110);
-			printf("at rank %d, %lld %lld %lld after recv\n",n_rank,startCpuCyclesCount, stopCpuCyclesCount, stopCpuCyclesCount-startCpuCyclesCount);
+            zhpe_stats_stop(110);
         }
         zhpe_stats_disable();
         MPI_Barrier(MPI_COMM_WORLD);

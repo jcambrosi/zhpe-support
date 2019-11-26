@@ -48,15 +48,6 @@ _EXTERN_C_BEG
 
 #ifdef HAVE_ZHPE_STATS
 
-inline __attribute__((always_inline)) long long rdtsc(void)
-{
-	unsigned int low, high;
-
-	asm volatile("rdtscp" : "=a" (low), "=d" (high));
-
-	return low | ((long long)high) << 32;
-}
-
 extern struct zhpe_stats_ops *zhpe_stats_ops;
 bool zhpe_stats_init(const char *stats_dir, const char *stats_unique);
 void zhpe_stats_test(uint16_t uid);
