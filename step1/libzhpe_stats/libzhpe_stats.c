@@ -45,7 +45,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-inline __attribute__((always_inline)) long long rdtsc(void)
+inline __attribute__((always_inline)) long long rdtscp(void)
 {
 	unsigned int low, high;
 
@@ -470,7 +470,7 @@ void printStack(void)
 }
 
 #ifdef HAVE_RDTSCP_PERFORM
-// JJJ
+
 struct zhpe_stats stats_rdtscp; // temporary
 static void stats_rdtscp_open(uint16_t uid)  {    printf("##### pid=%-5d stats_rdtscp_open uid=%d  \n", getpid(), uid);   }
 static void stats_rdtscp_close()             {    printf("##### pid=%-5d stats_rdtscp_close \n", getpid());   }
@@ -480,8 +480,14 @@ static void stats_rdtscp_disable()           {    printf("##### pid=%-5d stats_r
 static int n1=0;
 static struct zhpe_stats *stats_rdtscp_stop_counters()                       {    printf("##### pid=%-5d stats_rdtscp_stop_counters %d\n", getpid(), n1++);  return &stats_rdtscp; }
 static void stats_rdtscp_stop_all(struct zhpe_stats *stats)                  {    printf("##### pid=%-5d stats_rdtscp_stop_all \n", getpid());   }
-static void stats_rdtscp_start(struct zhpe_stats *stats, uint32_t subid)     {    printf("##### pid=%-5d stats_rdtscp_start subid=%d %u ### ... \n", getpid(), (int)subid, subid);   }
-static void stats_rdtscp_stop(struct zhpe_stats *stats, uint32_t subid)      {    printf("##### pid=%-5d stats_rdtscp_stop subid=%d  \n", getpid(), (int)subid);   }
+static void stats_rdtscp_start(struct zhpe_stats *stats, uint32_t subid)     
+{    
+	printf("***** pid=%-5d stats_rdtscp_start subid=%d %u tscp %lld \n", getpid(), (int)subid, subid, rdtscp());   
+}
+static void stats_rdtscp_stop(struct zhpe_stats *stats, uint32_t subid)      
+{    
+	printf("***** pid=%-5d stats_rdtscp_stop subid=%d %u tscp %lld \n", getpid(), (int)subid, subid, rdtscp());   
+}
 static void stats_rdtscp_pause(struct zhpe_stats *stats, uint32_t subid)     {    printf("##### pid=%-5d stats_rdtscp_pause subid=%d  \n", getpid(), (int)subid);   }
 static void stats_rdtscp_finalize()                                          {    printf("##### pid=%-5d stats_rdtscp_finalize \n", getpid());   }
 static void stats_rdtscp_pause_all(struct zhpe_stats *stats)                 {    printf("##### pid=%-5d stats_rdtscp_pause_all \n", getpid());   }
@@ -885,7 +891,7 @@ bool zhpe_stats_init(const char *stats_dir, const char *stats_unique)
     if (sim_api_is_sim())
         zhpe_stats_ops = &stats_ops_sim;
 #endif
-#ifdef HAVE_rdtscp_PERFORM // R&D BR
+#ifdef HAVE_RDTSCP_PERFORM // R&D BR
     zhpe_stats_ops = &stats_ops_rdtscp;
 #endif
 
