@@ -45,14 +45,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-inline __attribute__((always_inline)) long long rdtscp(void)
-{
-    unsigned int low, high;
-
-    asm volatile("rdtscp" : "=a" (low), "=d" (high));
-
-    return low | ((long long)high) << 32;
-}
 
 struct zhpe_stats_extra {
     uint32_t            starts;
@@ -542,8 +534,6 @@ static void stats_rdtscp_open(uint16_t uid)
                        "DATA_REC_CREAT", -EINVAL);
         abort();
     }
-// R&D BR
-buf_len = 9;
 printf("      stats_rdtscp_open uid=%d buf_len=%lu \n", uid, buf_len);
 
     stats_cmn_open(uid, buf_len);
@@ -601,18 +591,89 @@ static void stats_rdtscp_stop_all(struct zhpe_stats *stats)
 
 static void stats_rdtscp_start(struct zhpe_stats *stats, uint32_t subid)
 {
+    struct zhpe_stats_delta *active;
+
+    /* subid running or paused? */
+    active = stats_cmn_delta_find(stats, &stats->delta_paused, subid, true);
     printf("***** pid=%-5d stats_rdtscp_start subid=%u tscp %lld \n", getpid(), subid, rdtscp());
+    if (active) {
+        if (stats->delta)
+            stats_cmn_extra(stats, active->buf)->nesting =
+                stats_cmn_extra(stats, stats->delta->buf)->nesting + 1;
+        else
+            stats_cmn_extra(stats, active->buf)->nesting = 0;
+        active->next = stats->delta;
+        stats->delta = active;
+        goto do_start;
+    }
+    active = stats_cmn_delta_find(stats, &stats->delta, subid, false);
+    if (!active)
+        stats_cmn_delta_alloc(stats, subid);
+
+ do_start:
+    sim_start(stats);
+
 }
 
 static void stats_rdtscp_stop(struct zhpe_stats *stats, uint32_t subid)
 {
-    printf("***** pid=%-5d stats_rdtscp_stop subid=%u tscp %lld \n", getpid(), subid, rdtscp());
+    struct zhpe_stats_delta *active;
+    struct zhpe_stats_delta *delta;
+    struct zhpe_stats_delta *next;
+printf("***** pid=%-5d stats_rdtscp_stop subid=%u tscp %lld \n", getpid(), subid, rdtscp());
+
+    /* subid running or paused? */
+    active = stats_cmn_delta_find(stats, &stats->delta_paused, subid, true);
+    if (active) {
+        stats_cmn_delta_write(stats, active);
+        active->next = stats->delta_free;
+        stats->delta_free = active;
+        goto do_start;
+    }
+    active = stats_cmn_delta_find(stats, &stats->delta, subid, false);
+    if (!active)
+        goto do_start;
+
+    for (delta = stats->delta; delta; delta = next) {
+        next = delta->next;
+        stats_cmn_delta_write(stats, delta);
+        stats_cmn_delta_free_head(stats, &stats->delta);
+        if (delta == active)
+            break;
+    }
+
+ do_start:
+    if (stats->delta)
+        sim_start(stats);
 }
 
 static void stats_rdtscp_pause(struct zhpe_stats *stats, uint32_t subid)
 {
-    printf("##### pid=%-5d stats_rdtscp_pause subid=%d  \n", getpid(), (int)subid);
-    stats->pause_all = true;
+    struct zhpe_stats_delta *active;
+    struct zhpe_stats_delta *delta;
+    struct zhpe_stats_delta *next;
+printf("##### pid=%-5d stats_rdtscp_pause subid=%d  \n", getpid(), (int)subid);
+
+    /* Active? */
+    active = stats_cmn_delta_find(stats, &stats->delta, subid, false);
+    if (!active)
+        goto do_start;
+
+    for (delta = stats->delta; delta; delta = next) {
+        next = delta->next;
+        if (delta == active) {
+            stats->delta = next;
+            delta->next = stats->delta_paused;
+            stats->delta_paused = delta;
+            break;
+        }
+        stats_cmn_delta_write(stats, delta);
+        stats_cmn_delta_free_head(stats, &stats->delta);
+    }
+
+ do_start:
+    if (stats->delta)
+        sim_start(stats);
 }
 
 static void stats_rdtscp_finalize()
@@ -767,8 +828,6 @@ printf("##### stats_sim_open uid=%d  \n", uid);
                        "DATA_REC_CREAT", -EINVAL);
         abort();
     }
-// R&D BR
-buf_len = 8;
 
     stats_cmn_open(uid, buf_len);
 }
