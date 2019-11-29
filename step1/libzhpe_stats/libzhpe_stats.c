@@ -68,7 +68,6 @@ struct zhpe_stats_delta {
 
 struct zhpe_stats {
     char                rd_name[16]; // was likwid
-    uint32_t            rd_sample;   // was likwid
     uint32_t            run_count;
     int                 fd;
     uint16_t            uid;
@@ -432,9 +431,6 @@ static void stats_cmn_disable(void)
 
     stats->enabled = false;
 }
-
-
-
 
 // R&D BR  TODO: move to new source .c file
 // RDTSCP Code
